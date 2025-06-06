@@ -1,0 +1,32 @@
+name: Check lint and format
+
+on:
+  pull_request:
+
+jobs:
+  check-lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Install packages
+        run: pnpm install
+
+      - name: Copy env
+        run: cp .env.develop .env
+
+      - name: Generate prisma client
+        run: pnpm generate:prisma
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Prettier
+        run: pnpm format:check
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
