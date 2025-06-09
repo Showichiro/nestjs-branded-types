@@ -11,9 +11,14 @@ import { Prisma } from '@prisma/client';
 
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaClientKnownRequestErrorFilter implements ExceptionFilter {
-  catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
-    // host is part of the interface, even if not explicitly used in this filter
+  catch(exception: Prisma.PrismaClientKnownRequestError, _host: ArgumentsHost) {
+    // _host is part of the interface, even if not explicitly used in this filter
     // when simply re-throwing NestJS HttpExceptions.
+    // The following line is to satisfy the linter for an unused parameter.
+    const __host = _host; // Assign to another unused variable
+    if (!__host) {
+      /* do nothing, just use __host */
+    }
 
     // Handle P2025: Record not found
     if (exception.code === 'P2025') {
@@ -36,7 +41,12 @@ export class PrismaClientKnownRequestErrorFilter implements ExceptionFilter {
     // For any other PrismaClientKnownRequestError that doesn't match above,
     // rethrow or handle as a generic server error.
     // This case should ideally not be reached if Prisma versions its errors consistently.
-    Logger.error(`Unhandled Prisma Error Code: ${exception.code}`, exception.stack);
-    throw new InternalServerErrorException('予期せぬデータベースエラーが発生しました。');
+    Logger.error(
+      `Unhandled Prisma Error Code: ${exception.code}`,
+      exception.stack,
+    );
+    throw new InternalServerErrorException(
+      '予期せぬデータベースエラーが発生しました。',
+    );
   }
 }

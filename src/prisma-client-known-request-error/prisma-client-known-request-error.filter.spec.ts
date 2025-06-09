@@ -3,9 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
-  ArgumentsHost,
   HttpException,
   HttpStatus,
+  ArgumentsHost,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
@@ -23,25 +23,44 @@ const createMockPrismaError = (
   });
 };
 
-// Mock ArgumentsHost
-const mockArgumentsHost = {
-  switchToHttp: jest.fn().mockReturnThis(),
-  getResponse: jest.fn(),
+// Mock for HttpArgumentsHost
+const mockHttpArgumentsHost = {
   getRequest: jest.fn(),
+  getResponse: jest.fn(),
   getNext: jest.fn(),
 };
 
-// Since the filter throws exceptions rather than sending responses,
-// we don't need a complex response mock for these unit tests.
-// We will check the type and properties of the thrown exceptions.
+// A more accurate mock for ArgumentsHost
+const mockArgumentsHost: ArgumentsHost = {
+  getArgs: jest.fn(),
+  getArgByIndex: jest.fn(),
+  switchToHttp: jest.fn().mockReturnValue(mockHttpArgumentsHost), // switchToHttp returns the mockHttpArgumentsHost
+  switchToRpc: jest.fn().mockReturnThis(), // Keep others simple if not used
+  switchToWs: jest.fn().mockReturnThis(),
+  getType: jest.fn().mockReturnValue('http'),
+};
 
 describe('PrismaClientKnownRequestErrorFilter', () => {
   let filter: PrismaClientKnownRequestErrorFilter;
 
   beforeEach(() => {
     filter = new PrismaClientKnownRequestErrorFilter();
-    // Reset mocks for each test if they were used to capture calls
+
+    // Clear all top-level mocks on mockArgumentsHost
     jest.clearAllMocks();
+
+    // Reset implementations or return values for mockArgumentsHost and its nested mocks
+    mockArgumentsHost.getArgs = jest.fn();
+    mockArgumentsHost.getArgByIndex = jest.fn();
+    mockArgumentsHost.switchToHttp = jest.fn().mockReturnValue(mockHttpArgumentsHost);
+    mockArgumentsHost.switchToRpc = jest.fn().mockReturnThis();
+    mockArgumentsHost.switchToWs = jest.fn().mockReturnThis();
+    mockArgumentsHost.getType = jest.fn().mockReturnValue('http');
+
+    // Reset mocks on the object returned by switchToHttp()
+    mockHttpArgumentsHost.getRequest = jest.fn();
+    mockHttpArgumentsHost.getResponse = jest.fn();
+    mockHttpArgumentsHost.getNext = jest.fn();
   });
 
   it('should be defined', () => {
@@ -52,11 +71,12 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
     it('should throw NotFoundException for error code P2025', () => {
       const error = createMockPrismaError('P2025', 'Record not found');
       try {
-        filter.catch(error, mockArgumentsHost as any);
-      } catch (e) {
+        filter.catch(error, mockArgumentsHost);
+      } catch (e: unknown) {
         expect(e).toBeInstanceOf(NotFoundException);
-        expect(e.message).toBe('Record not found');
-        expect(e.getStatus()).toBe(HttpStatus.NOT_FOUND);
+        const httpException = e as HttpException;
+        expect(httpException.message).toBe('Record not found');
+        expect(httpException.getStatus()).toBe(HttpStatus.NOT_FOUND);
       }
     });
   });
@@ -68,13 +88,14 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
         "The provided value for the column is too long for the column's type.",
       );
       try {
-        filter.catch(error, mockArgumentsHost as any);
-      } catch (e) {
+        filter.catch(error, mockArgumentsHost);
+      } catch (e: unknown) {
         expect(e).toBeInstanceOf(BadRequestException);
-        expect(e.message).toBe(
+        const httpException = e as HttpException;
+        expect(httpException.message).toBe(
           "The provided value for the column is too long for the column's type.",
         );
-        expect(e.getStatus()).toBe(HttpStatus.BAD_REQUEST);
+        expect(httpException.getStatus()).toBe(HttpStatus.BAD_REQUEST);
       }
     });
   });
@@ -86,49 +107,38 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
         "Can't reach database server.",
       );
       try {
-        filter.catch(error, mockArgumentsHost as any);
-      } catch (e) {
+        filter.catch(error, mockArgumentsHost);
+      } catch (e: unknown) {
         expect(e).toBeInstanceOf(InternalServerErrorException);
-        expect(e.message).toBe('予期せぬエラーが発生しました。');
-        expect(e.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        const httpException = e as HttpException;
+        expect(httpException.message).toBe('予期せぬエラーが発生しました。');
+        expect(httpException.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
       }
     });
   });
 
   describe('Unhandled Prisma Error Code Handling', () => {
     it('should throw InternalServerErrorException for an unclassified P-error code like P3000', () => {
-      // P3xxx codes are typically migration errors, but let's assume one isn't explicitly P1/P2 prefix handled
       const error = createMockPrismaError('P3000', 'Migration error');
       try {
-        filter.catch(error, mockArgumentsHost as any);
-      } catch (e) {
+        filter.catch(error, mockArgumentsHost);
+      } catch (e: unknown) {
         expect(e).toBeInstanceOf(InternalServerErrorException);
-        expect(e.message).toBe('予期せぬデータベースエラーが発生しました。');
-        expect(e.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        const httpException = e as HttpException;
+        expect(httpException.message).toBe('予期せぬデータベースエラーが発生しました。');
+        expect(httpException.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
       }
     });
   });
 
   describe('Non-Prisma Error Handling', () => {
-    // This test is a bit conceptual for a @Catch(SpecificError) filter.
-    // The NestJS framework wouldn't call this filter for a generic Error.
-    // If called manually, it would likely error due to missing `exception.code`.
-    // This test checks that it doesn't crash unexpectedly and re-throws something.
-    it('should re-throw or not handle a generic error if forced', () => {
+    it('should cause a TypeError if a non-Prisma error is forced (due to missing .code)', () => {
       const genericError = new Error('Some generic error');
       try {
-        // Manually calling catch with a non-Prisma error
-        filter.catch(genericError as any, mockArgumentsHost as any);
-      } catch (e) {
-        // The filter's current code would try to access `e.code.at(1)` which would fail for a generic Error.
-        // It should ideally not be called with a generic error by NestJS itself.
-        // Depending on strictness, this could be expected to throw a TypeError or the original error.
-        // Given the filter's implementation, it will throw a TypeError because `code` is undefined.
-        // For a more robust filter, one might add `if (!(exception instanceof Prisma.PrismaClientKnownRequestError)) { throw exception; }`
-        // but that's usually handled by `@Catch()`.
-        // The current filter implementation will cause a TypeError here.
-        expect(e).not.toBeInstanceOf(HttpException); // It won't be an HttpException from our filter logic
-        expect(e).toBeInstanceOf(Error); // It will be some form of error
+        filter.catch(genericError as Prisma.PrismaClientKnownRequestError, mockArgumentsHost);
+      } catch (e: unknown) {
+        expect(e).toBeInstanceOf(TypeError);
+        expect(e).not.toBeInstanceOf(HttpException);
       }
     });
   });
