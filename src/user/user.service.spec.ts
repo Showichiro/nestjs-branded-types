@@ -3,7 +3,7 @@ import { UserService } from './user.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserDto } from './dto/user.dto';
 import { UserId, UserMail, UserName } from './types'; // Import branded types
-import { User as UserModelPrisma } from '@prisma/client'; // Prisma's User model type
+// import { User as UserModelPrisma } from '@prisma/client'; // Prisma's User model type - REMOVED
 
 // Define a simplified User model type based on observed TS errors for tests
 // This is a workaround if the full UserModelPrisma is not resolving correctly in tests
@@ -13,7 +13,6 @@ type TestUserModel = {
   name: string | null;
   // createdAt and updatedAt are omitted based on previous TS errors
 };
-
 
 type MockPrismaService = {
   user: {
@@ -47,7 +46,7 @@ describe('UserService', () => {
     }).compile();
 
     service = module.get<UserService>(UserService);
-    prisma = module.get(PrismaService) as MockPrismaService;
+    prisma = module.get(PrismaService);
 
     prisma.user.findMany.mockClear();
     prisma.user.findUniqueOrThrow.mockClear();
@@ -60,9 +59,18 @@ describe('UserService', () => {
 
   describe('findUsers', () => {
     it('should return an array of users', async () => {
-      const sampleUsers: TestUserModel[] = [ // Using simplified TestUserModel
-        { id: 1 as unknown as UserId, email: 'test1@example.com', name: 'Test User 1' },
-        { id: 2 as unknown as UserId, email: 'test2@example.com', name: 'Test User 2' },
+      const sampleUsers: TestUserModel[] = [
+        // Using simplified TestUserModel
+        {
+          id: 1 as unknown as UserId,
+          email: 'test1@example.com',
+          name: 'Test User 1',
+        },
+        {
+          id: 2 as unknown as UserId,
+          email: 'test2@example.com',
+          name: 'Test User 2',
+        },
       ];
       prisma.user.findMany.mockResolvedValue(sampleUsers as any); // Cast as any if return type mismatch
 
@@ -75,10 +83,11 @@ describe('UserService', () => {
 
   describe('findById', () => {
     const sampleId = 1 as unknown as UserId;
-    const sampleUser: TestUserModel = { // Using simplified TestUserModel
-        id: sampleId,
-        email: 'test@example.com',
-        name: 'Test User'
+    const sampleUser: TestUserModel = {
+      // Using simplified TestUserModel
+      id: sampleId,
+      email: 'test@example.com',
+      name: 'Test User',
     };
 
     it('should return a single user when found', async () => {
@@ -98,7 +107,9 @@ describe('UserService', () => {
       const error = new Error('User not found');
       prisma.user.findUniqueOrThrow.mockRejectedValue(error);
 
-      await expect(service.findById(nonExistentId)).rejects.toThrow('User not found');
+      await expect(service.findById(nonExistentId)).rejects.toThrow(
+        'User not found',
+      );
       expect(prisma.user.findUniqueOrThrow).toHaveBeenCalledTimes(1);
       expect(prisma.user.findUniqueOrThrow).toHaveBeenCalledWith({
         where: { id: nonExistentId },
@@ -113,10 +124,11 @@ describe('UserService', () => {
         name: 'New User' as UserName,
       };
       // The createdUser should match the simplified TestUserModel for consistency in this test setup
-      const createdUserResponse: TestUserModel = { // Using simplified TestUserModel
+      const createdUserResponse: TestUserModel = {
+        // Using simplified TestUserModel
         id: 3 as unknown as UserId,
         email: sampleDto.email as unknown as string, // DTO email is UserMail, prisma.user.create returns string
-        name: sampleDto.name as unknown as (string | null),  // DTO name is UserName, prisma.user.create returns string | null
+        name: sampleDto.name as unknown as string | null, // DTO name is UserName, prisma.user.create returns string | null
       };
       prisma.user.create.mockResolvedValue(createdUserResponse as any); // Cast as any
 

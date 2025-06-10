@@ -3,9 +3,17 @@ import { ProductService } from './product.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapPrismaProductToDomain } from './product.mapper';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { ProductId, CategoryId, Price, ProductName, ProductDescription, SKU, StockQuantity } from './types';
+import {
+  ProductId,
+  CategoryId,
+  Price,
+  ProductName,
+  ProductDescription,
+  SKU,
+  StockQuantity,
+} from './types';
 import { NotFoundException } from '@nestjs/common';
-import { Product as ProductInterface } from './interfaces/product.interface'; // Domain Product interface
+// import { Product as ProductInterface } from './interfaces/product.interface'; // Domain Product interface - REMOVED
 import { Product as PrismaProductModel } from '@prisma/client'; // Prisma's generated Product type
 
 // Define a type for our mock PrismaService for product operations
@@ -32,7 +40,11 @@ const mockPrismaService: MockPrismaService = {
 };
 
 // Helper to create sample Prisma Product Models for mocking
-const createSamplePrismaProduct = (id: number, categoryId: number, name: string): PrismaProductModel => ({
+const createSamplePrismaProduct = (
+  id: number,
+  categoryId: number,
+  name: string,
+): PrismaProductModel => ({
   id,
   name,
   description: `Description for ${name}`,
@@ -43,7 +55,6 @@ const createSamplePrismaProduct = (id: number, categoryId: number, name: string)
   createdAt: new Date(),
   updatedAt: new Date(),
 });
-
 
 describe('ProductService', () => {
   let service: ProductService;
@@ -61,10 +72,10 @@ describe('ProductService', () => {
     }).compile();
 
     service = module.get<ProductService>(ProductService);
-    prisma = module.get(PrismaService) as MockPrismaService;
+    prisma = module.get(PrismaService);
 
     // Reset mocks before each test
-    Object.values(prisma.product).forEach(mockFn => mockFn.mockClear());
+    Object.values(prisma.product).forEach((mockFn) => mockFn.mockClear());
   });
 
   it('should be defined', () => {
@@ -98,7 +109,9 @@ describe('ProductService', () => {
       const result = await service.findById(sampleId);
 
       expect(prisma.product.findUnique).toHaveBeenCalledTimes(1);
-      expect(prisma.product.findUnique).toHaveBeenCalledWith({ where: { id: sampleId } });
+      expect(prisma.product.findUnique).toHaveBeenCalledWith({
+        where: { id: sampleId },
+      });
       expect(result).toEqual(expectedProduct);
     });
 
@@ -106,9 +119,13 @@ describe('ProductService', () => {
       const nonExistentId = 99 as unknown as ProductId;
       prisma.product.findUnique.mockResolvedValue(null);
 
-      await expect(service.findById(nonExistentId)).rejects.toThrow(NotFoundException);
+      await expect(service.findById(nonExistentId)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(prisma.product.findUnique).toHaveBeenCalledTimes(1);
-      expect(prisma.product.findUnique).toHaveBeenCalledWith({ where: { id: nonExistentId } });
+      expect(prisma.product.findUnique).toHaveBeenCalledWith({
+        where: { id: nonExistentId },
+      });
     });
   });
 
@@ -125,7 +142,9 @@ describe('ProductService', () => {
       const result = await service.findByCategory(sampleCategoryId);
 
       expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
-      expect(prisma.product.findMany).toHaveBeenCalledWith({ where: { categoryId: sampleCategoryId } });
+      expect(prisma.product.findMany).toHaveBeenCalledWith({
+        where: { categoryId: sampleCategoryId },
+      });
       expect(result).toEqual(expectedProducts);
     });
   });
@@ -140,7 +159,10 @@ describe('ProductService', () => {
         categoryId: 12 as unknown as CategoryId,
         stockQuantity: 50 as unknown as StockQuantity,
       };
-      const createdRawProduct = { ...createSamplePrismaProduct(5, 12, 'New Product'), ...dto };
+      const createdRawProduct = {
+        ...createSamplePrismaProduct(5, 12, 'New Product'),
+        ...dto,
+      };
       // Prisma's create returns the full product object including the ID
       prisma.product.create.mockResolvedValue(createdRawProduct);
 
@@ -164,7 +186,7 @@ describe('ProductService', () => {
         ...createSamplePrismaProduct(1, 10, 'Product 1'),
         name: dto.name as unknown as string, // Apply update
         price: dto.price as unknown as number, // Apply update
-        updatedAt: new Date() // Simulate updatedAt change
+        updatedAt: new Date(), // Simulate updatedAt change
       };
       prisma.product.update.mockResolvedValue(updatedRawProduct);
       const expectedProduct = mapPrismaProductToDomain(updatedRawProduct);
@@ -188,7 +210,9 @@ describe('ProductService', () => {
       await service.delete(sampleId);
 
       expect(prisma.product.delete).toHaveBeenCalledTimes(1);
-      expect(prisma.product.delete).toHaveBeenCalledWith({ where: { id: sampleId } });
+      expect(prisma.product.delete).toHaveBeenCalledWith({
+        where: { id: sampleId },
+      });
     });
   });
 });

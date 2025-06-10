@@ -52,7 +52,9 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
     // Reset implementations or return values for mockArgumentsHost and its nested mocks
     mockArgumentsHost.getArgs = jest.fn();
     mockArgumentsHost.getArgByIndex = jest.fn();
-    mockArgumentsHost.switchToHttp = jest.fn().mockReturnValue(mockHttpArgumentsHost);
+    mockArgumentsHost.switchToHttp = jest
+      .fn()
+      .mockReturnValue(mockHttpArgumentsHost);
     mockArgumentsHost.switchToRpc = jest.fn().mockReturnThis();
     mockArgumentsHost.switchToWs = jest.fn().mockReturnThis();
     mockArgumentsHost.getType = jest.fn().mockReturnValue('http');
@@ -112,7 +114,9 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
         expect(e).toBeInstanceOf(InternalServerErrorException);
         const httpException = e as HttpException;
         expect(httpException.message).toBe('予期せぬエラーが発生しました。');
-        expect(httpException.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(httpException.getStatus()).toBe(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     });
   });
@@ -125,8 +129,12 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
       } catch (e: unknown) {
         expect(e).toBeInstanceOf(InternalServerErrorException);
         const httpException = e as HttpException;
-        expect(httpException.message).toBe('予期せぬデータベースエラーが発生しました。');
-        expect(httpException.getStatus()).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+        expect(httpException.message).toBe(
+          '予期せぬデータベースエラーが発生しました。',
+        );
+        expect(httpException.getStatus()).toBe(
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     });
   });
@@ -135,7 +143,10 @@ describe('PrismaClientKnownRequestErrorFilter', () => {
     it('should cause a TypeError if a non-Prisma error is forced (due to missing .code)', () => {
       const genericError = new Error('Some generic error');
       try {
-        filter.catch(genericError as Prisma.PrismaClientKnownRequestError, mockArgumentsHost);
+        filter.catch(
+          genericError as Prisma.PrismaClientKnownRequestError,
+          mockArgumentsHost,
+        );
       } catch (e: unknown) {
         expect(e).toBeInstanceOf(TypeError);
         expect(e).not.toBeInstanceOf(HttpException);
